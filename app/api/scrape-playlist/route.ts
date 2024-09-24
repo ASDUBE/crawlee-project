@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PlaywrightCrawler, Dataset } from "crawlee";
-import { v4 as uuidv4 } from "uuid";
+import { NextRequest, NextResponse } from 'next/server';
+import { PlaywrightCrawler, Dataset } from 'crawlee';
+import { v4 as uuidv4 } from 'uuid';
 
 interface VideoData {
   title: string;
   views: number;
   thumbnail: string;
+  likes?: number;
 }
 
 interface PlaylistData {
   videoList: VideoData[];
-  graphData: { name: string; views: number }[];
+  graphData: { name: string; views: number; likes?: number }[];
 }
 
 export async function POST(request: NextRequest) {
@@ -18,15 +19,15 @@ export async function POST(request: NextRequest) {
 
   if (!playlistUrl) {
     return NextResponse.json(
-      { error: "Playlist URL is required" },
+      { error: 'Playlist URL is required' },
       { status: 400 }
     );
   }
 
-  const playlistId = new URL(playlistUrl).searchParams.get("list");
+  const playlistId = new URL(playlistUrl).searchParams.get('list');
   if (!playlistId) {
     return NextResponse.json(
-      { error: "Invalid playlist URL" },
+      { error: 'Invalid playlist URL' },
       { status: 400 }
     );
   }
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     async requestHandler({ request, page, log }) {
       log.info(`Processing ${request.url}...`);
 
-      await page.waitForSelector("#contents ytd-playlist-video-renderer", {
+      await page.waitForSelector('#contents ytd-playlist-video-renderer', {
         timeout: 30000,
       });
 
@@ -54,27 +55,42 @@ export async function POST(request: NextRequest) {
       });
 
       const videos: VideoData[] = await page.$$eval(
-        "#contents ytd-playlist-video-renderer",
+        '#contents ytd-playlist-video-renderer',
         (elements) => {
           return elements.map((el) => {
             const title =
-              el.querySelector("#video-title")?.textContent?.trim() || "";
+              el.querySelector('#video-title')?.textContent?.trim() || '';
             const viewsText =
-              el.querySelector("#video-info span")?.textContent?.trim() || "";
-            const thumbnail = el.querySelector("img")?.src || "";
+              el.querySelector('#video-info span')?.textContent?.trim() || '';
+            const thumbnail = el.querySelector('img')?.src || '';
+            const likeText =
+              el.querySelector('#video-info span')?.textContent?.trim() || '';
 
             const viewsMatch = viewsText.match(/^([\d,.]+[KMB]?)\s*views?$/i);
             let views = 0;
             if (viewsMatch) {
-              const viewString = viewsMatch[1].toUpperCase().replace(/,/g, "");
-              if (viewString.endsWith("K"))
+              const viewString = viewsMatch[1].toUpperCase().replace(/,/g, '');
+              if (viewString.endsWith('K'))
                 views = parseFloat(viewString) * 1000;
-              else if (viewString.endsWith("M"))
+              else if (viewString.endsWith('M'))
                 views = parseFloat(viewString) * 1000000;
-              else if (viewString.endsWith("B"))
+              else if (viewString.endsWith('B'))
                 views = parseFloat(viewString) * 1000000000;
               else views = parseInt(viewString);
             }
+
+            // const likesMatch = likeText.match(/^([\d,.]+[KMB]?)\s*months ago?$/i);
+            // let likes = 0;
+            // if (likesMatch) {
+            //   const likeString = likesMatch[1].toUpperCase().replace(/,/g, '');
+            //   if (likeString.endsWith('K'))
+            //     likes = parseFloat(likeString) * 1000;
+            //   else if (likeString.endsWith('M'))
+            //     likes = parseFloat(likeString) * 1000000;
+            //   else if (likeString.endsWith('B'))
+            //     likes = parseFloat(likeString) * 1000000000;
+            //   else likes = parseInt(likeString);
+            // }
 
             return { title, views, thumbnail };
           });
@@ -103,6 +119,7 @@ export async function POST(request: NextRequest) {
     const graphData = videos.map((video, index) => ({
       name: `Video ${index + 1}`,
       views: video.views,
+      likes: video.likes,
     }));
 
     const playlistData: PlaylistData = {
@@ -114,10 +131,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(playlistData);
   } catch (error) {
-    console.error("Crawling failed:", error);
+    console.error('Crawling failed:', error);
     await dataset.drop();
     return NextResponse.json(
-      { error: "An error occurred while scraping the playlist" },
+      { error: 'An error occurred while scraping the playlist' },
       { status: 500 }
     );
   }

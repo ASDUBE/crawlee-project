@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import {
   LineChart,
   Line,
@@ -19,21 +19,23 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
+} from 'recharts';
 
 interface VideoData {
   title: string;
   views: number;
   thumbnail: string;
+  likes: number;
 }
 
 interface GraphData {
   name: string;
   views: number;
+  likes: number;
 }
 
 export default function Home() {
-  const [playlistUrl, setPlaylistUrl] = useState("");
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [videoData, setVideoData] = useState<VideoData[]>([]);
   const [graphData, setGraphData] = useState<GraphData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,25 +45,35 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/scrape-playlist", {
-        method: "POST",
+      const response = await fetch('/api/scrape-playlist', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ playlistUrl }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch playlist data");
+        throw new Error('Failed to fetch playlist data');
       }
 
       const data = await response.json();
       setVideoData(data.videoList);
       setGraphData(data.graphData);
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const formatLikes = (likes: number) => {
+    if (likes >= 1000000) {
+      return `${(likes / 1000000).toFixed(1)}M`;
+    } else if (likes >= 1000) {
+      return `${(likes / 1000).toFixed(1)}K`;
+    } else {
+      return likes.toString();
     }
   };
 
@@ -94,7 +106,7 @@ export default function Home() {
               required
             />
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Analyzing..." : "Analyze Playlist"}
+              {isLoading ? 'Analyzing...' : 'Analyze Playlist'}
             </Button>
           </form>
         </CardContent>
@@ -123,6 +135,9 @@ export default function Home() {
                       <p className="text-sm text-gray-600">
                         {formatViews(video.views)} views
                       </p>
+                      {/* <p className="text-sm text-gray-600">
+                        {formatLikes(video.likes)} likes
+                      </p> */}
                     </div>
                   </li>
                 ))}
@@ -148,6 +163,12 @@ export default function Home() {
                     stroke="#8884d8"
                     activeDot={{ r: 8 }}
                   />
+                  {/* <Line
+                    type="monotone"
+                    dataKey="likes"
+                    stroke="#8884d8"
+                    activeDot={{ r: 8 }}
+                  /> */}
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
